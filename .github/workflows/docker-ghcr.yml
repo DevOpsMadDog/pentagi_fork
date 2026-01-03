@@ -1,0 +1,146 @@
+name: Build and Push to GHCR
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (leave empty for auto)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  guard-check:
+    name: Verify No VXControl Cloud SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for VXControl Cloud SDK
+        run: |
+          echo "Verifying VXControl Cloud SDK is not present..."
+          
+          # Fail if vxcontrol/cloud is in go.mod
+          if grep -q "github.com/vxcontrol/cloud" backend/go.mod; then
+            echo "::error::VXControl Cloud SDK found in go.mod! Cannot build image."
+            exit 1
+          fi
+          
+          # Fail if vxcontrol/cloud import exists
+          if grep -r "github.com/vxcontrol/cloud" --include="*.go" backend/; then
+            echo "::error::VXControl Cloud SDK import found! Cannot build image."
+            exit 1
+          fi
+          
+          echo "VXControl Cloud SDK not present - proceeding with build"
+
+  build-and-push:
+    needs: guard-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version info
+        id: version
+        run: |
+          # Get upstream version if available
+          UPSTREAM_VERSION=""
+          if [ -f "VERSION" ]; then
+            UPSTREAM_VERSION=$(cat VERSION)
+          fi
+          
+          # Determine tag
+          if [[ "${{ github.event.inputs.tag }}" != "" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            TAG=${GITHUB_REF#refs/tags/}
+          else
+            # Use commit SHA for non-tag builds
+            TAG="sha-$(git rev-parse --short HEAD)"
+          fi
+          
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "upstream_version=${UPSTREAM_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Create suffix for no-vxcloud variant
+          echo "tag_suffix=-no-vxcloud" >> $GITHUB_OUTPUT
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Latest tag for main/master branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+            # Version tag with -no-vxcloud suffix
+            type=raw,value=${{ steps.version.outputs.tag }}${{ steps.version.outputs.tag_suffix }},enable=true
+            # SHA-based tag
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=PentAGI (No VXControl Cloud)
+            org.opencontainers.image.description=PentAGI fork with VXControl Cloud SDK removed for offline/air-gapped operation
+            org.opencontainers.image.vendor=DevOpsMadDog
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: true
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.tag }}
+            BUILD_COMMIT=${{ github.sha }}
+
+      - name: Summary
+        run: |
+          echo "## Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Usage in FixOps" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "export PENTAGI_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "make up-pentagi" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
