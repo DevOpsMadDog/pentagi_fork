@@ -1,0 +1,129 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly on Monday at 9 AM UTC
+  workflow_dispatch:
+    inputs:
+      create_pr:
+        description: 'Create PR for upstream changes'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/vxcontrol/pentagi.git || true
+          git fetch upstream
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          UPSTREAM_SHA=$(git rev-parse upstream/master)
+          echo "upstream_sha=${UPSTREAM_SHA}" >> $GITHUB_OUTPUT
+          
+          # Check if we already have this commit
+          if git merge-base --is-ancestor $UPSTREAM_SHA HEAD; then
+            echo "already_synced=true" >> $GITHUB_OUTPUT
+            echo "No new upstream changes to sync"
+          else
+            echo "already_synced=false" >> $GITHUB_OUTPUT
+            echo "New upstream changes detected"
+            
+            # Get commit count
+            COMMIT_COUNT=$(git rev-list HEAD..upstream/master --count)
+            echo "commit_count=${COMMIT_COUNT}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create sync branch
+        if: steps.check.outputs.already_synced == 'false'
+        id: branch
+        run: |
+          BRANCH_NAME="sync-upstream-$(date +%Y%m%d)"
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          
+          # Check if branch already exists
+          if git ls-remote --heads origin $BRANCH_NAME | grep -q $BRANCH_NAME; then
+            git checkout $BRANCH_NAME
+            git pull origin $BRANCH_NAME
+          else
+            git checkout -b $BRANCH_NAME
+          fi
+
+      - name: Merge upstream
+        if: steps.check.outputs.already_synced == 'false'
+        id: merge
+        run: |
+          # Attempt merge
+          if git merge upstream/master --no-edit; then
+            echo "merge_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "merge_status=conflict" >> $GITHUB_OUTPUT
+            # List conflicting files
+            git diff --name-only --diff-filter=U > /tmp/conflicts.txt
+            echo "Conflicts detected in:"
+            cat /tmp/conflicts.txt
+          fi
+
+      - name: Push sync branch
+        if: steps.check.outputs.already_synced == 'false' && steps.merge.outputs.merge_status == 'success'
+        run: |
+          git push origin ${{ steps.branch.outputs.branch_name }} --force-with-lease
+
+      - name: Create or update PR
+        if: steps.check.outputs.already_synced == 'false' && steps.merge.outputs.merge_status == 'success' && (github.event.inputs.create_pr == 'true' || github.event_name == 'schedule')
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.branch.outputs.branch_name }}
+          base: master
+          title: "Sync upstream vxcontrol/pentagi"
+          body: |
+            ## Upstream Sync
+            
+            This PR syncs changes from [vxcontrol/pentagi](https://github.com/vxcontrol/pentagi).
+            
+            **Upstream commit:** ${{ steps.check.outputs.upstream_sha }}
+            **New commits:** ${{ steps.check.outputs.commit_count }}
+            
+            ### Review Checklist
+            - [ ] Check for conflicts in modified files (go.mod, config.go, hardening.go, server_settings_form.go)
+            - [ ] Verify VXControl Cloud SDK was not reintroduced
+            - [ ] Run guard-check workflow
+            - [ ] Test Docker build
+            
+            ### Conflict Hotspots
+            These files have our VXControl removal changes and may need manual conflict resolution:
+            - `backend/go.mod`
+            - `backend/pkg/config/config.go`
+            - `backend/cmd/installer/hardening/hardening.go`
+            - `backend/cmd/installer/wizard/models/server_settings_form.go`
+          labels: |
+            upstream-sync
+            automated
+
+      - name: Report conflict
+        if: steps.check.outputs.already_synced == 'false' && steps.merge.outputs.merge_status == 'conflict'
+        run: |
+          echo "::warning::Merge conflicts detected. Manual resolution required."
+          echo "Conflicting files:"
+          cat /tmp/conflicts.txt
+          exit 1

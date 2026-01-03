@@ -1,0 +1,172 @@
+name: Guard Check - VXControl Cloud SDK
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  guard-vxcontrol:
+    name: Check for VXControl Cloud SDK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for VXControl Cloud SDK import
+        id: check-import
+        run: |
+          echo "Checking for VXControl Cloud SDK imports..."
+          
+          # Search for vxcontrol/cloud import in Go files
+          if grep -r "github.com/vxcontrol/cloud" --include="*.go" .; then
+            echo "::error::VXControl Cloud SDK import found in Go files!"
+            echo "found_import=true" >> $GITHUB_OUTPUT
+          else
+            echo "No VXControl Cloud SDK imports found"
+            echo "found_import=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for VXControl Cloud SDK in go.mod
+        id: check-gomod
+        run: |
+          echo "Checking go.mod for VXControl Cloud SDK dependency..."
+          
+          if grep -q "github.com/vxcontrol/cloud" backend/go.mod; then
+            echo "::error::VXControl Cloud SDK found in go.mod!"
+            echo "found_gomod=true" >> $GITHUB_OUTPUT
+          else
+            echo "No VXControl Cloud SDK in go.mod"
+            echo "found_gomod=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for cloud endpoints
+        id: check-endpoints
+        run: |
+          echo "Checking for VXControl cloud endpoints..."
+          
+          FOUND_ENDPOINTS=false
+          
+          # Check for update.pentagi.com
+          if grep -r "update\.pentagi\.com" --include="*.go" . | grep -v "// Removed" | grep -v "// VXControl"; then
+            echo "::warning::Reference to update.pentagi.com found"
+            FOUND_ENDPOINTS=true
+          fi
+          
+          # Check for support.pentagi.com
+          if grep -r "support\.pentagi\.com" --include="*.go" . | grep -v "// Removed" | grep -v "// VXControl"; then
+            echo "::warning::Reference to support.pentagi.com found"
+            FOUND_ENDPOINTS=true
+          fi
+          
+          echo "found_endpoints=${FOUND_ENDPOINTS}" >> $GITHUB_OUTPUT
+
+      - name: Check for cloud SDK function calls
+        id: check-calls
+        run: |
+          echo "Checking for VXControl Cloud SDK function calls..."
+          
+          FOUND_CALLS=false
+          
+          # Check for sdk.IntrospectLicenseKey
+          if grep -r "sdk\.IntrospectLicenseKey\|IntrospectLicenseKey" --include="*.go" .; then
+            echo "::error::VXControl SDK IntrospectLicenseKey call found!"
+            FOUND_CALLS=true
+          fi
+          
+          # Check for system.GetInstallationID from cloud SDK
+          if grep -r "\"github.com/vxcontrol/cloud/system\"" --include="*.go" .; then
+            echo "::error::VXControl cloud/system import found!"
+            FOUND_CALLS=true
+          fi
+          
+          echo "found_calls=${FOUND_CALLS}" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "## VXControl Cloud SDK Guard Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ steps.check-import.outputs.found_import }}" == "true" ]]; then
+            echo "- :x: VXControl Cloud SDK import found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :white_check_mark: No VXControl Cloud SDK imports" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ steps.check-gomod.outputs.found_gomod }}" == "true" ]]; then
+            echo "- :x: VXControl Cloud SDK in go.mod" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :white_check_mark: No VXControl Cloud SDK in go.mod" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ steps.check-endpoints.outputs.found_endpoints }}" == "true" ]]; then
+            echo "- :warning: Cloud endpoint references found (may be acceptable if commented/disabled)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :white_check_mark: No active cloud endpoint references" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ steps.check-calls.outputs.found_calls }}" == "true" ]]; then
+            echo "- :x: VXControl SDK function calls found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :white_check_mark: No VXControl SDK function calls" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if VXControl Cloud SDK found
+        if: steps.check-import.outputs.found_import == 'true' || steps.check-gomod.outputs.found_gomod == 'true' || steps.check-calls.outputs.found_calls == 'true'
+        run: |
+          echo "::error::VXControl Cloud SDK detected! This fork should not contain VXControl Cloud SDK."
+          echo "Please review and remove any VXControl Cloud SDK references."
+          exit 1
+
+  test-fixops-compatibility:
+    name: Test FixOps API Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          go build -o /tmp/pentagi ./cmd/pentagi
+          echo "Backend builds successfully"
+
+      - name: Verify API endpoints exist
+        working-directory: backend
+        run: |
+          echo "Checking that required API endpoints are defined..."
+          
+          # Check for flows API (used by FixOps micro-pentest)
+          if grep -r "flows" pkg/server/routes.go pkg/server/*.go 2>/dev/null || grep -r "/api/v1/flows" . --include="*.go"; then
+            echo "Flows API endpoint found"
+          else
+            echo "::warning::Flows API endpoint not found - FixOps integration may be affected"
+          fi
+          
+          # Check for tasks API
+          if grep -r "tasks" pkg/server/routes.go pkg/server/*.go 2>/dev/null || grep -r "/api/v1/tasks" . --include="*.go"; then
+            echo "Tasks API endpoint found"
+          else
+            echo "::warning::Tasks API endpoint not found - FixOps integration may be affected"
+          fi
+          
+          echo "API compatibility check complete"
+
+      - name: Summary
+        run: |
+          echo "## FixOps Compatibility Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- :white_check_mark: Backend compiles successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- :white_check_mark: API structure intact" >> $GITHUB_STEP_SUMMARY

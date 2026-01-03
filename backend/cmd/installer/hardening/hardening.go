@@ -5,14 +5,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"pentagi/cmd/installer/checker"
 	"pentagi/cmd/installer/loader"
 	"pentagi/cmd/installer/state"
 
 	"github.com/google/uuid"
-	"github.com/vxcontrol/cloud/sdk"
-	"github.com/vxcontrol/cloud/system"
 )
 
 type HardeningArea string
@@ -125,23 +126,13 @@ var varsHardeningPolicies = map[HardeningArea]map[string]HardeningPolicy{
 func DoHardening(s state.State, c checker.CheckResult) error {
 	var haveToCommit bool
 
-	installationID := system.GetInstallationID().String()
+	// Get or generate installation ID locally (no cloud dependency)
+	installationID := getOrCreateInstallationID()
 	if id, _ := s.GetVar("INSTALLATION_ID"); id.Value != installationID {
 		if err := s.SetVar("INSTALLATION_ID", installationID); err != nil {
 			return fmt.Errorf("failed to set INSTALLATION_ID: %w", err)
 		}
 		haveToCommit = true
-	}
-
-	if licenseKey, exists := s.GetVar("LICENSE_KEY"); exists && licenseKey.Value != "" {
-		if info, err := sdk.IntrospectLicenseKey(licenseKey.Value); err != nil {
-			return fmt.Errorf("failed to introspect license key: %w", err)
-		} else if !info.IsValid() {
-			if err := s.SetVar("LICENSE_KEY", ""); err != nil {
-				return fmt.Errorf("failed to set LICENSE_KEY: %w", err)
-			}
-			haveToCommit = true
-		}
 	}
 
 	// harden langfuse vars only if neither containers nor volumes exist
@@ -346,4 +337,43 @@ func randStringHex(length int) (string, error) {
 
 func randStringUUID(prefix string) (string, error) {
 	return prefix + uuid.New().String(), nil
+}
+
+// getOrCreateInstallationID generates or retrieves a persistent installation ID
+// This replaces the VXControl Cloud SDK's system.GetInstallationID() function
+// to enable fully offline/air-gapped operation
+func getOrCreateInstallationID() string {
+	// Try to read from common data directories
+	dataDirs := []string{"./data", "/var/lib/pentagi", os.Getenv("DATA_DIR")}
+
+	for _, dir := range dataDirs {
+		if dir == "" {
+			continue
+		}
+		idPath := filepath.Join(dir, "installation_id")
+		if data, err := os.ReadFile(idPath); err == nil {
+			id := strings.TrimSpace(string(data))
+			if uuid.Validate(id) == nil {
+				return id
+			}
+		}
+	}
+
+	// Generate new installation ID
+	newID := uuid.New().String()
+
+	// Try to persist it
+	for _, dir := range dataDirs {
+		if dir == "" {
+			continue
+		}
+		idPath := filepath.Join(dir, "installation_id")
+		if err := os.MkdirAll(dir, 0755); err == nil {
+			if err := os.WriteFile(idPath, []byte(newID), 0644); err == nil {
+				break
+			}
+		}
+	}
+
+	return newID
 }
