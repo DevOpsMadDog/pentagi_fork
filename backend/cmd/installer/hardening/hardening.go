@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"pentagi/cmd/installer/checker"
 	"pentagi/cmd/installer/loader"
@@ -133,11 +134,6 @@ func DoHardening(s state.State, c checker.CheckResult) error {
 		}
 		haveToCommit = true
 	}
-
-	// License key validation removed - VXControl Cloud SDK dependency removed
-	// License keys are now accepted as-is without cloud validation
-	// This enables fully offline/air-gapped operation
-	_ = s // suppress unused warning if license key block was the only usage
 
 	// harden langfuse vars only if neither containers nor volumes exist
 	// this prevents password changes when volumes with existing credentials are present
@@ -356,7 +352,8 @@ func getOrCreateInstallationID() string {
 		}
 		idPath := filepath.Join(dir, "installation_id")
 		if data, err := os.ReadFile(idPath); err == nil {
-			if id := string(data); uuid.Validate(id) == nil {
+			id := strings.TrimSpace(string(data))
+			if uuid.Validate(id) == nil {
 				return id
 			}
 		}
