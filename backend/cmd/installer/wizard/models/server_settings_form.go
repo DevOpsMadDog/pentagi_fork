@@ -13,7 +13,6 @@ import (
 	"pentagi/cmd/installer/wizard/window"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/vxcontrol/cloud/sdk"
 )
 
 // ServerSettingsFormModel represents the PentAGI server settings configuration form
@@ -375,13 +374,9 @@ func (m *ServerSettingsFormModel) HandleSave() error {
 
 		switch field.Key {
 		case "pentagi_license_key":
-			if value != "" {
-				if info, err := sdk.IntrospectLicenseKey(value); err != nil {
-					return fmt.Errorf("invalid license key: %v", err)
-				} else if !info.IsValid() {
-					return fmt.Errorf("invalid license key")
-				}
-			}
+			// License key validation removed - VXControl Cloud SDK dependency removed
+			// License keys are now accepted as-is without cloud validation
+			// This enables fully offline/air-gapped operation
 			newCfg.LicenseKey.Value = value
 		case "pentagi_server_host":
 			newCfg.ListenIP.Value = value

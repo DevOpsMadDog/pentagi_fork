@@ -1972,25 +1972,6 @@ This project is made possible thanks to the following research and developments:
 **PentAGI Core**: Licensed under [MIT License](LICENSE)  
 Copyright (c) 2025 PentAGI Development Team
 
-### VXControl Cloud SDK Integration
+### Fork Notice
 
-**VXControl Cloud SDK Integration**: This repository integrates [VXControl Cloud SDK](https://github.com/vxcontrol/cloud) under a **special licensing exception** that applies **ONLY** to the official PentAGI project.
-
-#### ✅ Official PentAGI Project
-- This official repository: `https://github.com/vxcontrol/pentagi`
-- Official releases distributed by VXControl LLC
-- Code used under direct authorization from VXControl LLC
-
-#### ⚠️ Important for Forks and Third-Party Use
-
-If you fork this project or create derivative works, the VXControl SDK components are subject to **AGPL-3.0** license terms. You must either:
-
-1. **Remove VXControl SDK integration**
-2. **Open source your entire application** (comply with AGPL-3.0 copyleft terms)
-3. **Obtain a commercial license** from VXControl LLC
-
-#### Commercial Licensing
-
-For commercial use of VXControl Cloud SDK in proprietary applications, contact:
-- **Email**: info@vxcontrol.com  
-- **Subject**: "VXControl Cloud SDK Commercial License"
+This fork has removed the VXControl Cloud SDK integration to enable fully offline/air-gapped operation without any external cloud dependencies. License keys are accepted as-is without cloud validation.

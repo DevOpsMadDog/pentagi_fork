@@ -9,7 +9,6 @@ import (
 	"github.com/caarlos0/env/v10"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
-	"github.com/vxcontrol/cloud/sdk"
 )
 
 type Config struct {
@@ -214,16 +213,7 @@ func ensureInstallationID(config *Config) {
 }
 
 func ensureLicenseKey(config *Config) {
-	// validate current license key from environment
-	if config.LicenseKey == "" {
-		return
-	}
-
-	// check license key validity, if invalid, set to empty
-	info, err := sdk.IntrospectLicenseKey(config.LicenseKey)
-	if err != nil {
-		config.LicenseKey = ""
-	} else if !info.IsValid() {
-		config.LicenseKey = ""
-	}
+	// License key validation removed - VXControl Cloud SDK dependency removed
+	// License keys are now accepted as-is without cloud validation
+	// This enables fully offline/air-gapped operation
 }
