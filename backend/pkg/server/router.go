@@ -46,13 +46,13 @@ var frontendRoutes = []string{
 	"/login",
 }
 
-// @title PentAGI Swagger API
+// @title MPTEngine Swagger API
 // @version 1.0
-// @description Swagger API for Penetration Testing Advanced General Intelligence PentAGI.
+// @description Swagger API for MPTEngine (Micro PenTesting Engine), formerly PentAGI.
 // @termsOfService http://swagger.io/terms/
 
 // @contact.url https://pentagi.com
-// @contact.name PentAGI Development Team
+// @contact.name MPTEngine Development Team
 // @contact.email team@pentagi.com
 
 // @license.name MIT
