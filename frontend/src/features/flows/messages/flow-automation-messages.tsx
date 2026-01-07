@@ -158,7 +158,7 @@ const FlowAutomationMessages = ({ className }: FlowAutomationMessagesProps) => {
             }
 
             case StatusType.Running: {
-                return 'PentAGI is working... Click Stop to interrupt';
+                return 'MPTEngine is working... Click Stop to interrupt';
             }
 
             case StatusType.Waiting: {
@@ -317,7 +317,7 @@ const FlowAutomationMessages = ({ className }: FlowAutomationMessagesProps) => {
                         </EmptyMedia>
                         <EmptyTitle>No active tasks</EmptyTitle>
                         <EmptyDescription>
-                            Starting a new task may take some time as the PentAGI agent downloads the required Docker
+                            Starting a new task may take some time as the MPTEngine agent downloads the required Docker
                             image
                         </EmptyDescription>
                     </EmptyHeader>

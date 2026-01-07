@@ -411,17 +411,11 @@ func TestList(t *testing.T) {
 		t.Error("List() with 'observability' prefix returned no files from embedded")
 	}
 
-	// verify we get some expected files
-	foundObservabilityFile := false
+	// verify returned paths are under the requested prefix
 	for _, file := range files {
-		if strings.HasPrefix(file, "observability/") {
-			foundObservabilityFile = true
-			break
+		if !strings.HasPrefix(file, "observability") {
+			t.Fatalf("List() returned unexpected file outside prefix: %q (files=%v)", file, files)
 		}
-	}
-
-	if !foundObservabilityFile {
-		t.Error("List() with 'observability' prefix did not include any observability files")
 	}
 
 	// test listing with non-existent prefix

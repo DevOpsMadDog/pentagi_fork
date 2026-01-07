@@ -1114,14 +1114,14 @@ definitions:
 info:
   contact:
     email: team@pentagi.com
-    name: PentAGI Development Team
+    name: MPTEngine Development Team
     url: https://pentagi.com
-  description: Swagger API for Penetration Testing Advanced General Intelligence PentAGI.
+  description: Swagger API for MPTEngine (Micro PenTesting Engine), formerly PentAGI.
   license:
     name: MIT
     url: https://opensource.org/license/mit
   termsOfService: http://swagger.io/terms/
-  title: PentAGI Swagger API
+  title: MPTEngine Swagger API
   version: "1.0"
 paths:
   /agentlogs/:

@@ -107,8 +107,8 @@ jobs:
             # SHA-based tag
             type=sha,prefix=sha-
           labels: |
-            org.opencontainers.image.title=PentAGI (No VXControl Cloud)
-            org.opencontainers.image.description=PentAGI fork with VXControl Cloud SDK removed for offline/air-gapped operation
+            org.opencontainers.image.title=MPTEngine (No VXControl Cloud)
+            org.opencontainers.image.description=MPTEngine (formerly PentAGI) fork with VXControl Cloud SDK removed for offline/air-gapped operation
             org.opencontainers.image.vendor=DevOpsMadDog
 
       - name: Build and push

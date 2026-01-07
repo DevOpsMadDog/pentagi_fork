@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -64,8 +65,37 @@ type files struct {
 }
 
 func NewFiles() Files {
+	// Runtime uses ./links. Tests (and some tooling) run with a different CWD, so we also
+	// resolve links relative to this source file location.
+	linksDir := "links"
+
+	// 1) Prefer local ./links for real runtime usage.
+	if info, err := os.Stat(linksDir); err != nil || !info.IsDir() {
+		// 2) Resolve relative to this package source directory (stable for tests).
+		if _, thisFile, _, ok := runtime.Caller(0); ok {
+			candidate := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", "links"))
+			if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+				linksDir = candidate
+			}
+		}
+
+		// 3) As a fallback, walk up a few levels from CWD.
+		if info, err := os.Stat(linksDir); err != nil || !info.IsDir() {
+			for _, candidate := range []string{
+				filepath.Join("..", "links"),
+				filepath.Join("..", "..", "links"),
+				filepath.Join("..", "..", "..", "links"),
+			} {
+				if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+					linksDir = candidate
+					break
+				}
+			}
+		}
+	}
+
 	return &files{
-		linksDir: "links",
+		linksDir: linksDir,
 	}
 }
 

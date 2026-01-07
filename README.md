@@ -1,7 +1,7 @@
-# PentAGI
+# MPTEngine (formerly PentAGI)
 
 <div align="center" style="font-size: 1.5em; margin: 20px 0;">
-    <strong>P</strong>enetration testing <strong>A</strong>rtificial <strong>G</strong>eneral <strong>I</strong>ntelligence
+    <strong>M</strong>icro <strong>P</strong>en<strong>T</strong>esting <strong>E</strong>ngine
 </div>
 <br>
 <div align="center">
@@ -28,7 +28,13 @@
 
 ## 🎯 Overview
 
-PentAGI is an innovative tool for automated security testing that leverages cutting-edge artificial intelligence technologies. The project is designed for information security professionals, researchers, and enthusiasts who need a powerful and flexible solution for conducting penetration tests.
+MPTEngine (formerly PentAGI) is an innovative tool for automated security testing that leverages cutting-edge artificial intelligence technologies. The project is designed for information security professionals, researchers, and enthusiasts who need a powerful and flexible solution for conducting penetration tests.
+
+## 🔁 Naming & Compatibility Notes
+
+- **Branding**: User-facing name is **MPTEngine**.
+- **Compatibility**: For now, internal identifiers and integration knobs (e.g. `/api/v1`, `PENTAGI_IMAGE`, some `pentagi` image/module names) are kept for **FixOps** and existing deployments.
+- **Docs**: See `backend/docs/mptengine_remodel.md` and `backend/docs/fixops_compatibility.md`.
 
 You can watch the video **PentAGI overview**:
 [![PentAGI Overview Video](https://github.com/user-attachments/assets/0828dc3e-15f1-4a1d-858e-9696a146e478)](https://youtu.be/R70x5Ddzs1o)

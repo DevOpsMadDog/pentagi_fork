@@ -1,11 +1,11 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Swagger API for Penetration Testing Advanced General Intelligence PentAGI.",
-        "title": "PentAGI Swagger API",
+        "description": "Swagger API for MPTEngine (Micro PenTesting Engine), formerly PentAGI.",
+        "title": "MPTEngine Swagger API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
-            "name": "PentAGI Development Team",
+            "name": "MPTEngine Development Team",
             "url": "https://pentagi.com",
             "email": "team@pentagi.com"
         },
